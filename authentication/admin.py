@@ -12,6 +12,10 @@ from .models import Group, UserGroup
 
 User = get_user_model()
 
+# Unregister the User model if it's already registered
+if admin.site.is_registered(User):
+    admin.site.unregister(User)
+
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):

@@ -34,9 +34,9 @@ SECRET_KEY = os.getenv('SECRET_KEY', '6hyk-x9f#r!16lez2i+ek+@!x(4!k6x9y-$^1h69_@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1'] if DEBUG else [
-    host.strip() for host in os.getenv('ALLOWED_HOST', 'localhost').split(',')
-] + ['127.0.0.1', 'localhost']
+# Parse allowed hosts from environment variable
+env_hosts = [host.strip() for host in os.getenv('ALLOWED_HOST', '').split(',') if host.strip()]
+ALLOWED_HOSTS = ['localhost', '127.0.0.1'] + env_hosts
 
 
 # Application definition

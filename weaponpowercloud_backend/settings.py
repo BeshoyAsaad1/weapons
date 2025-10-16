@@ -286,153 +286,29 @@ CORS_ALLOW_HEADERS = [
 # Security Settings for Production
 if not DEBUG:
     # Cookie Security
-    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True').lower() == 'true'
-    CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'True').lower() == 'true'
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
+    CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() == 'true'
 
-    # HTTPS Security
-    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
-    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv('SECURE_HSTS_INCLUDE_SUBDOMAINS', 'True').lower() == 'true'
-    SECURE_HSTS_PRELOAD = os.getenv('SECURE_HSTS_PRELOAD', 'True').lower() == 'true'
+    # HTTPS Security - DEFAULT TO FALSE (no SSL certificates yet)
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv('SECURE_HSTS_INCLUDE_SUBDOMAINS', 'False').lower() == 'true'
+    SECURE_HSTS_PRELOAD = os.getenv('SECURE_HSTS_PRELOAD', 'False').lower() == 'true'
 
     # Content Security
     SECURE_CONTENT_TYPE_NOSNIFF = os.getenv('SECURE_CONTENT_TYPE_NOSNIFF', 'True').lower() == 'true'
     SECURE_BROWSER_XSS_FILTER = os.getenv('SECURE_BROWSER_XSS_FILTER', 'True').lower() == 'true'
     SECURE_REFERRER_POLICY = os.getenv('SECURE_REFERRER_POLICY', 'strict-origin-when-cross-origin')
 
-    # Additional cookie settings
+    # Additional cookie settings - RELAXED FOR CROSS-ORIGIN
     SESSION_COOKIE_HTTPONLY = True
-    CSRF_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Strict'
-    CSRF_COOKIE_SAMESITE = 'Strict'
+    CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read CSRF token
+    SESSION_COOKIE_SAMESITE = 'None'  # Allow cross-origin cookies
+    CSRF_COOKIE_SAMESITE = 'None'  # Allow cross-origin CSRF token
 else:
     # Development settings - less restrictive
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_SAMESITE = 'Lax'
 
-# Logging Configuration
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
-            'formatter': 'verbose',
-            'encoding': 'utf-8',
-        },
-    },
-    'loggers': {
-        'authentication': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'surveys': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO',
-        },
-    },
-}
-
-# Create logs directory if it doesn't exist
-os.makedirs(BASE_DIR / 'logs', exist_ok=True)
-
-# Channels Configuration - COMMENTED OUT FOR PRODUCTION
-# ASGI_APPLICATION = 'weaponpowercloud_backend.asgi.application'
-
-# Redis Channel Layer Configuration - COMMENTED OUT FOR PRODUCTION
-# CHANNEL_LAYERS = {
-#     'default': {
-#         # Temporarily using in-memory backend for compatibility with Redis 3.2
-#         'BACKEND': 'channels.layers.InMemoryChannelLayer',
-#         # 'BACKEND': 'channels_redis.core.RedisChannelLayer',
-#         # 'CONFIG': {
-#         #     "hosts": [(os.getenv('REDIS_HOST', '127.0.0.1'), int(os.getenv('REDIS_PORT', 6379)))],
-#         #     "symmetric_encryption_keys": [SECRET_KEY[:32]],  # Use first 32 chars of SECRET_KEY
-#         #     "capacity": 1500,  # Maximum number of messages in a channel
-#         #     "expiry": 60,  # Message expiry time in seconds
-#         # },
-#     },
-# }
-
-# WebSocket Configuration - COMMENTED OUT FOR PRODUCTION
-# WEBSOCKET_URL = os.getenv('WEBSOCKET_URL', 'ws://localhost:8000/ws/')
-
-# Security Configuration
-# Brute Force Protection Settings
-MAX_LOGIN_ATTEMPTS = int(os.getenv('MAX_LOGIN_ATTEMPTS', '3'))
-LOCKOUT_DURATION_MINUTES = int(os.getenv('LOCKOUT_DURATION_MINUTES', '15'))
-RATE_LIMIT_DURATION_MINUTES = int(os.getenv('RATE_LIMIT_DURATION_MINUTES', '5'))
-
-# Security Headers
-X_FRAME_OPTIONS = 'DENY'
-SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
-SECURE_BROWSER_XSS_FILTER = True
-
-# Content Security Policy - basic secure configuration
-# Get allowed origins from CORS settings for CSP
-cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',')
-cors_origins_stripped = [origin.strip() for origin in cors_origins]
-
-CSP_DEFAULT_SRC = ("'self'",)
-CSP_SCRIPT_SRC = ("'self'",)
-CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")  # Allow inline styles for admin
-CSP_IMG_SRC = ("'self'", "data:", "https:", "http:")
-CSP_FONT_SRC = ("'self'", "https:", "data:")
-CSP_CONNECT_SRC = ("'self'",) + tuple(cors_origins_stripped)  # Allow connections from allowed CORS origins
-CSP_FRAME_ANCESTORS = ("'none'",)  # Equivalent to X-Frame-Options: DENY
-
-# Additional Security Settings for Production
-if not DEBUG:
-    # Force HTTPS in production
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-
-    # Additional production security
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-else:
-    # Development settings
-    CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "'unsafe-eval'")  # Allow for development
-    CSP_CONNECT_SRC = ("'self'", "http://localhost:*", "https://localhost:*", "ws://localhost:*", "wss://localhost:*")
-
-# Input Sanitization Settings
-ALLOWED_HTML_TAGS = [
-    'p', 'br', 'strong', 'b', 'em', 'i', 'u',
-    'ul', 'ol', 'li', 'blockquote'
-]
-
-ALLOWED_HTML_ATTRIBUTES = {
-    '*': ['class'],
-}
-
-# File Upload Security
-MAX_UPLOAD_SIZE = int(os.getenv('MAX_UPLOAD_SIZE', '10485760'))  # 10MB default
-ALLOWED_FILE_TYPES = [
-    'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
-    'application/pdf', 'text/plain', 'text/csv'
-]

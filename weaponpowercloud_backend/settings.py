@@ -34,15 +34,9 @@ SECRET_KEY = os.getenv('SECRET_KEY', '6hyk-x9f#r!16lez2i+ek+@!x(4!k6x9y-$^1h69_@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-# Add a HOST_IP value (can be overridden by environment). Use the AWS host you provided as a safe default.
-HOST_IP = os.getenv('HOST_IP', '3.74.228.219')
-
-# Parse allowed hosts from environment variable
-env_hosts = [host.strip() for host in os.getenv('ALLOWED_HOST', '').split(',') if host.strip()]
-# If no ALLOWED_HOST provided via env, include HOST_IP by default so the server accepts requests to that IP
-if not env_hosts:
-    env_hosts = [HOST_IP]
-ALLOWED_HOSTS = ['localhost', '127.0.0.1'] + env_hosts
+ALLOWED_HOSTS = ['localhost', '127.0.0.1'] if DEBUG else [
+                                                             host.strip() for host in os.getenv('ALLOWED_HOST', 'localhost').split(',')
+                                                         ] + ['127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -130,17 +124,17 @@ if USE_ORACLE:
             },
         }
     }
-    
+
     # Oracle-specific settings
     SILENCED_SYSTEM_CHECKS = [
         'fields.E007',  # Ignore Oracle field name length warnings
         'models.W037',  # Ignore Oracle conditional index warnings
     ]
-    
+
     # Set Oracle NLS_LANG environment variable for character set handling
     # This helps resolve Oracle character set mismatch issues
     os.environ.setdefault('NLS_LANG', 'AMERICAN_AMERICA.AL32UTF8')
-    
+
 else:
     # SQLite database configuration for local development
     DATABASES = {
@@ -149,7 +143,7 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-    
+
     # Clear Oracle-specific settings when using SQLite
     SILENCED_SYSTEM_CHECKS = []
 
@@ -239,19 +233,19 @@ SIMPLE_JWT = {
     'JSON_ENCODER': None,
     'JWK_URL': None,
     'LEEWAY': 0,
-    
+
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
     'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
-    
+
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
     'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
-    
+
     'JTI_CLAIM': 'jti',
-    
+
     'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
@@ -265,15 +259,7 @@ NEWS_MAX_IMAGES_PER_ITEM = 10
 
 # CORS Configuration
 # Read CORS settings from environment variables
-# Add HOST_IP origins to the default list so frontend served from the server IP or via plain HTTP is allowed
-_default_cors = os.getenv('CORS_ALLOWED_ORIGINS', f'http://localhost:5173,http://127.0.0.1:5173,http://{HOST_IP},https://{HOST_IP}')
-CORS_ALLOWED_ORIGINS = [o.strip() for o in _default_cors.split(',') if o.strip()]
-
-# Ensure localhost:5173 is always allowed for development
-if 'http://localhost:5173' not in CORS_ALLOWED_ORIGINS:
-    CORS_ALLOWED_ORIGINS.append('http://localhost:5173')
-if 'https://localhost:5173' not in CORS_ALLOWED_ORIGINS:
-    CORS_ALLOWED_ORIGINS.append('https://localhost:5173')
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',')
 
 CORS_ALLOW_CREDENTIALS = os.getenv('CORS_ALLOW_CREDENTIALS', 'True').lower() == 'true'
 
@@ -299,29 +285,154 @@ CORS_ALLOW_HEADERS = [
 
 # Security Settings for Production
 if not DEBUG:
-    # Cookie Security - Make less restrictive for cross-origin development
-    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
-    CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() == 'true'
+    # Cookie Security
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True').lower() == 'true'
+    CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'True').lower() == 'true'
 
     # HTTPS Security
-    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
-    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0'))
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv('SECURE_HSTS_INCLUDE_SUBDOMAINS', 'False').lower() == 'true'
-    SECURE_HSTS_PRELOAD = os.getenv('SECURE_HSTS_PRELOAD', 'False').lower() == 'true'
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv('SECURE_HSTS_INCLUDE_SUBDOMAINS', 'True').lower() == 'true'
+    SECURE_HSTS_PRELOAD = os.getenv('SECURE_HSTS_PRELOAD', 'True').lower() == 'true'
 
     # Content Security
     SECURE_CONTENT_TYPE_NOSNIFF = os.getenv('SECURE_CONTENT_TYPE_NOSNIFF', 'True').lower() == 'true'
     SECURE_BROWSER_XSS_FILTER = os.getenv('SECURE_BROWSER_XSS_FILTER', 'True').lower() == 'true'
     SECURE_REFERRER_POLICY = os.getenv('SECURE_REFERRER_POLICY', 'strict-origin-when-cross-origin')
-    
-    # Additional cookie settings - relaxed for cross-origin
+
+    # Additional cookie settings
     SESSION_COOKIE_HTTPONLY = True
-    CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to access CSRF token
-    SESSION_COOKIE_SAMESITE = 'None'  # Allow cross-origin cookies
-    CSRF_COOKIE_SAMESITE = 'None'  # Allow cross-origin CSRF token
+    CSRF_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Strict'
+    CSRF_COOKIE_SAMESITE = 'Strict'
 else:
     # Development settings - less restrictive
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
-    SESSION_COOKIE_SAMESITE = 'Lax'
-    CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'django.log',
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+    },
+    'loggers': {
+        'authentication': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'surveys': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+    },
+}
+
+# Create logs directory if it doesn't exist
+os.makedirs(BASE_DIR / 'logs', exist_ok=True)
+
+# Channels Configuration - COMMENTED OUT FOR PRODUCTION
+# ASGI_APPLICATION = 'weaponpowercloud_backend.asgi.application'
+
+# Redis Channel Layer Configuration - COMMENTED OUT FOR PRODUCTION
+# CHANNEL_LAYERS = {
+#     'default': {
+#         # Temporarily using in-memory backend for compatibility with Redis 3.2
+#         'BACKEND': 'channels.layers.InMemoryChannelLayer',
+#         # 'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         # 'CONFIG': {
+#         #     "hosts": [(os.getenv('REDIS_HOST', '127.0.0.1'), int(os.getenv('REDIS_PORT', 6379)))],
+#         #     "symmetric_encryption_keys": [SECRET_KEY[:32]],  # Use first 32 chars of SECRET_KEY
+#         #     "capacity": 1500,  # Maximum number of messages in a channel
+#         #     "expiry": 60,  # Message expiry time in seconds
+#         # },
+#     },
+# }
+
+# WebSocket Configuration - COMMENTED OUT FOR PRODUCTION
+# WEBSOCKET_URL = os.getenv('WEBSOCKET_URL', 'ws://localhost:8000/ws/')
+
+# Security Configuration
+# Brute Force Protection Settings
+MAX_LOGIN_ATTEMPTS = int(os.getenv('MAX_LOGIN_ATTEMPTS', '3'))
+LOCKOUT_DURATION_MINUTES = int(os.getenv('LOCKOUT_DURATION_MINUTES', '15'))
+RATE_LIMIT_DURATION_MINUTES = int(os.getenv('RATE_LIMIT_DURATION_MINUTES', '5'))
+
+# Security Headers
+X_FRAME_OPTIONS = 'DENY'
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+SECURE_BROWSER_XSS_FILTER = True
+
+# Content Security Policy - basic secure configuration
+# Get allowed origins from CORS settings for CSP
+cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',')
+cors_origins_stripped = [origin.strip() for origin in cors_origins]
+
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'",)
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")  # Allow inline styles for admin
+CSP_IMG_SRC = ("'self'", "data:", "https:", "http:")
+CSP_FONT_SRC = ("'self'", "https:", "data:")
+CSP_CONNECT_SRC = ("'self'",) + tuple(cors_origins_stripped)  # Allow connections from allowed CORS origins
+CSP_FRAME_ANCESTORS = ("'none'",)  # Equivalent to X-Frame-Options: DENY
+
+# Additional Security Settings for Production
+if not DEBUG:
+    # Force HTTPS in production
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # Additional production security
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+else:
+    # Development settings
+    CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "'unsafe-eval'")  # Allow for development
+    CSP_CONNECT_SRC = ("'self'", "http://localhost:*", "https://localhost:*", "ws://localhost:*", "wss://localhost:*")
+
+# Input Sanitization Settings
+ALLOWED_HTML_TAGS = [
+    'p', 'br', 'strong', 'b', 'em', 'i', 'u',
+    'ul', 'ol', 'li', 'blockquote'
+]
+
+ALLOWED_HTML_ATTRIBUTES = {
+    '*': ['class'],
+}
+
+# File Upload Security
+MAX_UPLOAD_SIZE = int(os.getenv('MAX_UPLOAD_SIZE', '10485760'))  # 10MB default
+ALLOWED_FILE_TYPES = [
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+    'application/pdf', 'text/plain', 'text/csv'
+]

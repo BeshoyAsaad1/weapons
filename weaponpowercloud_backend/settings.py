@@ -392,11 +392,17 @@ SECURE_BROWSER_XSS_FILTER = True
 
 # Content Security Policy - basic secure configuration
 CSP_DEFAULT_SRC = ("'self'",)
-CSP_SCRIPT_SRC = ("'self'",)
-CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")  # Allow inline styles for admin
-CSP_IMG_SRC = ("'self'", "data:", "https:")
-CSP_FONT_SRC = ("'self'", "https:")
-CSP_CONNECT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "'unsafe-eval'")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
+CSP_IMG_SRC = ("'self'", "data:", "https:", "http:")
+CSP_FONT_SRC = ("'self'", "https:", "data:")
+
+# Parse CORS origins for CSP
+cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
+cors_origins_tuple = tuple(origin.strip() for origin in cors_origins)
+
+# Allow connections from CORS origins
+CSP_CONNECT_SRC = ("'self'",) + cors_origins_tuple + ("http://localhost:*", "https://localhost:*", "ws://localhost:*", "wss://localhost:*")
 CSP_FRAME_ANCESTORS = ("'none'",)  # Equivalent to X-Frame-Options: DENY
 
 # Additional Security Settings for Production
@@ -404,22 +410,22 @@ if not DEBUG:
     # Force HTTPS in production
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    
+    SECURE_SSL_REDIRECT = False  # Disable to allow HTTP connections for testing
+    SECURE_HSTS_SECONDS = 0  # Disable HSTS for now
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+
     # Enhanced CSP for production
     allowed_hosts = [host.strip() for host in os.getenv('ALLOWED_HOST', 'localhost').split(',')]
-    CSP_CONNECT_SRC = ("'self'",) + tuple(f"https://{host}" for host in allowed_hosts)
-    
+    https_hosts = tuple(f"https://{host}" for host in allowed_hosts if host)
+    http_hosts = tuple(f"http://{host}" for host in allowed_hosts if host)
+    CSP_CONNECT_SRC = ("'self'",) + cors_origins_tuple + https_hosts + http_hosts
+
     # Additional production security
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 else:
-    # Development settings
-    CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "'unsafe-eval'")  # Allow for development
-    CSP_CONNECT_SRC = ("'self'", "http://localhost:*", "https://localhost:*")
-    CSP_CONNECT_SRC = ("'self'", "https:")
+    # Development settings - very permissive
+    CSP_CONNECT_SRC = ("'self'", "http://localhost:*", "https://localhost:*", "ws://localhost:*", "wss://localhost:*", "http:", "https:")
 
 # Input Sanitization Settings
 ALLOWED_HTML_TAGS = [

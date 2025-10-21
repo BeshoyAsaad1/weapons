@@ -18,17 +18,12 @@ http {
         server web:8000;
     }
 
-    # HTTP server - redirects to HTTPS and handles Let's Encrypt
+    # HTTP server - redirects to HTTPS
     server {
         listen 80;
         server_name _;
 
-        # Let's Encrypt ACME challenge
-        location /.well-known/acme-challenge/ {
-            root /var/www/certbot;
-        }
-
-        # Redirect all other HTTP traffic to HTTPS
+        # Redirect all HTTP traffic to HTTPS
         location / {
             return 301 https://$host$request_uri;
         }
@@ -39,9 +34,9 @@ http {
         listen 443 ssl;
         server_name _;
 
-        # SSL certificate files
-        ssl_certificate /etc/letsencrypt/live/myweapons.duckdns.org/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/myweapons.duckdns.org/privkey.pem;
+        # Self-signed SSL certificate files
+        ssl_certificate /etc/nginx/ssl/nginx-selfsigned.crt;
+        ssl_certificate_key /etc/nginx/ssl/nginx-selfsigned.key;
 
         # SSL security settings
         ssl_protocols TLSv1.2 TLSv1.3;

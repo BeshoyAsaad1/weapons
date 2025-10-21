@@ -1,0 +1,213 @@
+=====================================================
+MANUAL DEPLOYMENT COMMANDS FOR EC2
+=====================================================
+
+1. SSH into your EC2 instance (use whatever method works for you)
+
+2. Once logged in, run these commands:
+
+cd /home/ec2-user/weapon-backend
+
+# Backup current files
+cp .env .env.backup
+cp nginx/nginx.conf nginx/nginx.conf.backup
+cp weaponpowercloud_backend/settings.py weaponpowercloud_backend/settings.py.backup
+cp authentication/admin.py authentication/admin.py.backup
+
+# Update .env file
+cat > .env << 'EOF'
+# Azure AD Configuration
+AZURE_TENANT_ID=61032d68-6ef9-4d5f-9b9e-46c6556b6f47
+AZURE_CLIENT_ID=91ce101f-58e6-4d4c-8f0b-599b713c3101
+
+# Django Configuration
+DEBUG=False
+SECRET_KEY='6hyk-x9f#r!16lez2i+ek+@!x(4!k6x9y-$^1h69_@y9ropte_'
+# Multiple domains can be separated by commas
+HOST_IP=3.74.228.219
+ALLOWED_HOST=apps.lightidea.org,3.74.228.219
+
+# Encryption Configuration
+SURVEYS_ENCRYPTION_KEY=1j1J0jFbbvDfZ23EcNYsf10zq6872EM1nA8IdU5C8nA=
+
+# Database (Oracle for production)
+USE_ORACLE=True
+ORACLE_USERNAME=timesheet
+ORACLE_PASSWORD=KgJyrx3$1
+ORACLE_HOST=185.197.251.203
+ORACLE_PORT=1521
+ORACLE_SERVICE=PROD
+
+# CORS Settings
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://3.74.228.219,https://3.74.228.219,http://apps.lightidea.org,https://apps.lightidea.org
+CORS_ALLOW_ALL_ORIGINS=False
+CORS_ALLOW_CREDENTIALS=True
+
+# Cache Settings (for JWKS caching)
+CACHE_TTL=300
+
+# Security Settings - Adjusted for HTTP deployment (no SSL yet)
+SESSION_COOKIE_SECURE=False
+CSRF_COOKIE_SECURE=False
+SECURE_SSL_REDIRECT=False
+SECURE_HSTS_SECONDS=0
+SECURE_HSTS_INCLUDE_SUBDOMAINS=False
+SECURE_HSTS_PRELOAD=False
+SECURE_CONTENT_TYPE_NOSNIFF=True
+SECURE_BROWSER_XSS_FILTER=True
+SECURE_REFERRER_POLICY=strict-origin-when-cross-origin
+
+# Redis Configuration (for notifications and caching)
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+
+# Notification Settings
+NOTIFICATION_CLEANUP_DAYS=30
+NOTIFICATION_MAX_PER_USER=1000
+
+# Logging
+LOG_LEVEL=INFO
+EOF
+
+# Update nginx configuration
+cat > nginx/nginx.conf << 'EOF'
+# ==============================================================
+# ✅ NGINX CONFIG FOR DJANGO + GUNICORN (HTTP + HTTPS support)
+# ==============================================================
+
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    sendfile      on;
+    keepalive_timeout 65;
+
+    upstream django {
+        server web:8000;
+    }
+
+    server {
+        listen 80;
+        server_name _;
+
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, X-Requested-With' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+
+        if ($request_method = 'OPTIONS') {
+            return 204;
+        }
+
+        location /static/ {
+            alias /app/staticfiles/;
+        }
+
+        location /media/ {
+            alias /app/media/;
+        }
+
+        location / {
+            proxy_pass http://django;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 300;
+            proxy_connect_timeout 300;
+            proxy_send_timeout 300;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        server_name _;
+
+        ssl_certificate     /etc/letsencrypt/live/3.74.228.219/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/3.74.228.219/privkey.pem;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, X-Requested-With' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+
+        if ($request_method = 'OPTIONS') {
+            return 204;
+        }
+
+        location /static/ {
+            alias /app/staticfiles/;
+        }
+
+        location /media/ {
+            alias /app/media/;
+        }
+
+        location / {
+            proxy_pass http://django;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 300;
+            proxy_connect_timeout 300;
+            proxy_send_timeout 300;
+        }
+    }
+}
+EOF
+
+# Fix the admin.py duplicate registration issue
+cat > authentication/admin.py << 'EOFADMIN'
+"""
+Django admin configuration for authentication models.
+"""
+from django.contrib import admin
+from django.contrib.auth import get_user_model
+from .models import Group, UserGroup
+
+User = get_user_model()
+
+# Unregister the User model if it's already registered (robust across Django versions)
+try:
+    admin.site.unregister(User)
+except Exception:
+    pass
+
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ['email', 'username', 'first_name', 'last_name', 'role', 'is_active', 'date_joined', 'last_login']
+    list_filter = ['role', 'is_active', 'date_joined', 'last_login']
+    search_fields = ['email', 'username', 'first_name', 'last_name']
+    ordering = ['-date_joined']
+    readonly_fields = ['date_joined', 'last_login']
+
+# ... rest of admin.py remains the same
+EOFADMIN
+
+# Restart Docker containers
+docker-compose down
+docker-compose up -d --build
+
+# Wait for containers to start
+sleep 15
+
+# Check container status
+docker-compose ps
+
+# View logs
+docker-compose logs --tail=100 web
+
+echo ""
+echo "Deployment complete!"
+echo "Test the application at: http://3.74.228.219"
+

@@ -4,6 +4,9 @@ __pycache__/
 *$py.class
 *.so
 .Python
+env/
+venv/
+ENV/
 build/
 develop-eggs/
 dist/
@@ -19,59 +22,35 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
-# Virtual environments
-venv/
-env/
-ENV/
-env.bak/
-venv.bak/
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
 
-# IDEs
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Environment files - CRITICAL: Never commit these!
-.env
-.env.local
-.env.production
-.env.*.local
-!.env.production.example
-
-# Database
-*.sqlite3
-db.sqlite3
-*.db
-
-# Logs
-*.log
-logs/
-
-# Static and media files
-staticfiles/
-media/
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.hypothesis/
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
 
-# Backup files
-*.bak
-*.backup
+# SSL Certificates (Let's Encrypt)
+certbot/
+nginx/ssl/
 
-# Temporary files
-*.tmp
-*.temp
+# Logs
+logs/
+*.log
 
-*.md

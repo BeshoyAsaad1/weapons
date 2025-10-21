@@ -12,9 +12,13 @@ from .models import Group, UserGroup
 
 User = get_user_model()
 
-# Unregister the User model if it's already registered
-if admin.site.is_registered(User):
+# Unregister the User model if it's already registered (robust across Django versions)
+try:
+    # Try to unregister in case another module already registered this model
     admin.site.unregister(User)
+except Exception:
+    # Ignore errors (NotRegistered or AlreadyRegistered) and proceed to register our admin
+    pass
 
 
 @admin.register(User)

@@ -1,0 +1,123 @@
+# ==============================================================
+# ✅ NGINX CONFIG FOR DJANGO + GUNICORN (HTTP ONLY - TEMPORARY)
+# ==============================================================
+
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    sendfile      on;
+    keepalive_timeout 65;
+
+    # ----------------------------------------------------------
+    # 🔹 Define the upstream Django app (the "web" service)
+    # ----------------------------------------------------------
+    upstream django {
+        server web:8000;
+    }
+
+    # ----------------------------------------------------------
+    # 🔹 HTTP server (port 80) - Main server WITHOUT SSL
+    # ----------------------------------------------------------
+    server {
+        listen 80;
+        server_name _;
+
+        # CORS headers for cross-origin requests
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, X-Requested-With' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+
+        # Handle preflight requests
+        if ($request_method = 'OPTIONS') {
+            return 204;
+        }
+
+        # ------------------------------------------------------
+        # 🔸 Static and Media files
+        # ------------------------------------------------------
+        location /static/ {
+            alias /app/staticfiles/;
+        }
+
+        location /media/ {
+            alias /app/media/;
+        }
+
+        # ------------------------------------------------------
+        # 🔸 Pass all other requests to Django (Gunicorn)
+        # ------------------------------------------------------
+        location / {
+            proxy_pass http://django;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Increase timeouts for long-running requests
+            proxy_read_timeout 300;
+            proxy_connect_timeout 300;
+            proxy_send_timeout 300;
+        }
+    }
+}
+#!/bin/bash
+
+# Fix Nginx Crash - Check and repair SSL certificates
+
+echo "=========================================="
+echo "Fixing Nginx Crash"
+echo "=========================================="
+echo ""
+
+# Navigate to correct directory
+if [ -d "/home/ubuntu/weapons" ]; then
+    cd /home/ubuntu/weapons
+elif [ -d "/home/ec2-user/weapon-backend" ]; then
+    cd /home/ec2-user/weapon-backend
+fi
+
+echo "Current directory: $(pwd)"
+echo ""
+
+echo "Step 1: Checking nginx error logs..."
+docker logs weaponbackend_nginx_prod 2>&1 | tail -30
+echo ""
+
+echo "Step 2: Checking if SSL certificates exist..."
+if [ -d "certbot/conf/live/myweapons.duckdns.org" ]; then
+    echo "✓ Certificate directory exists"
+    ls -la certbot/conf/live/myweapons.duckdns.org/
+else
+    echo "❌ Certificate directory NOT found!"
+    echo "This is why nginx is crashing."
+    echo ""
+    echo "Running Let's Encrypt setup now..."
+    chmod +x init-letsencrypt.sh
+    DOMAIN=myweapons.duckdns.org EMAIL=Beshoy.Soliman.FCI21114@sadatacademy.edu.eg ./init-letsencrypt.sh
+fi
+echo ""
+
+echo "Step 3: Checking nginx configuration..."
+grep -n "ssl_certificate" nginx/nginx.conf
+echo ""
+
+echo "Step 4: Restarting nginx..."
+docker-compose -f docker-compose.prod.yml restart nginx
+sleep 5
+echo ""
+
+echo "Step 5: Checking nginx status..."
+docker ps | grep nginx
+echo ""
+
+echo "=========================================="
+echo "Fix Complete!"
+echo "=========================================="
+

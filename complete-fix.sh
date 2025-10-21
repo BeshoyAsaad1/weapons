@@ -25,17 +25,22 @@ echo ""
 
 # Step 1: Stop everything
 echo "Step 1: Stopping all containers..."
-docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
-docker stop $(docker ps -aq) 2>/dev/null || true
-docker rm $(docker ps -aq) 2>/dev/null || true
+sudo docker-compose -f docker-compose.prod.yml down 2>/dev/null || docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+CONTAINERS=$(sudo docker ps -aq 2>/dev/null || docker ps -aq 2>/dev/null)
+if [ ! -z "$CONTAINERS" ]; then
+    sudo docker stop $CONTAINERS 2>/dev/null || docker stop $CONTAINERS 2>/dev/null || true
+    sudo docker rm $CONTAINERS 2>/dev/null || docker rm $CONTAINERS 2>/dev/null || true
+fi
 echo "✓ All containers stopped and removed"
 echo ""
 
 # Step 2: Create necessary directories
 echo "Step 2: Creating certificate directories..."
-mkdir -p certbot/conf/live
-mkdir -p certbot/www
-echo "✓ Directories created"
+sudo mkdir -p certbot/conf/live 2>/dev/null || mkdir -p certbot/conf/live 2>/dev/null || true
+sudo mkdir -p certbot/www 2>/dev/null || mkdir -p certbot/www 2>/dev/null || true
+sudo chown -R $(whoami):$(whoami) certbot/ 2>/dev/null || true
+sudo chmod -R 755 certbot/ 2>/dev/null || true
+echo "✓ Directories created/fixed"
 echo ""
 
 # Step 3: Temporarily use HTTP-only config
@@ -46,7 +51,7 @@ if [ -f nginx/nginx.conf.http-only ]; then
     echo "✓ Using HTTP-only config"
 else
     echo "⚠️  HTTP-only config not found, will try with current config"
-fi
+sudo docker-compose -f docker-compose.prod.yml up -d 2>/dev/null || docker-compose -f docker-compose.prod.yml up -d
 echo ""
 
 # Step 4: Start containers
@@ -61,7 +66,7 @@ sleep 20
 echo ""
 
 # Step 6: Check container status
-echo "Step 6: Checking container status..."
+NGINX_STATUS=$(sudo docker ps --filter "name=nginx" --format "{{.Status}}" 2>/dev/null || docker ps --filter "name=nginx" --format "{{.Status}}")
 docker-compose -f docker-compose.prod.yml ps
 echo ""
 

@@ -15,15 +15,21 @@ def check_column_exists(table_name, column_name):
                            WHERE table_name = UPPER(%s)
                              AND column_name = UPPER(%s)
                            """, [table_name, column_name])
+            return cursor.fetchone()[0] > 0
+        elif connection.vendor == 'sqlite':
+            # SQLite uses PRAGMA table_info
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            columns = [row[1] for row in cursor.fetchall()]
+            return column_name in columns
         else:
+            # PostgreSQL, MySQL use information_schema
             cursor.execute("""
                            SELECT COUNT(*)
                            FROM information_schema.columns
                            WHERE table_name = %s
                              AND column_name = %s
                            """, [table_name, column_name])
-
-        return cursor.fetchone()[0] > 0
+            return cursor.fetchone()[0] > 0
 
 
 def check_table_exists(table_name):
@@ -35,14 +41,23 @@ def check_table_exists(table_name):
                            FROM user_tables
                            WHERE table_name = UPPER(%s)
                            """, [table_name])
+            return cursor.fetchone()[0] > 0
+        elif connection.vendor == 'sqlite':
+            # SQLite uses sqlite_master
+            cursor.execute("""
+                           SELECT COUNT(*)
+                           FROM sqlite_master
+                           WHERE type='table' AND name=?
+                           """, [table_name])
+            return cursor.fetchone()[0] > 0
         else:
+            # PostgreSQL, MySQL use information_schema
             cursor.execute("""
                            SELECT COUNT(*)
                            FROM information_schema.tables
                            WHERE table_name = %s
                            """, [table_name])
-
-        return cursor.fetchone()[0] > 0
+            return cursor.fetchone()[0] > 0
 
 
 def add_per_device_access_field(apps, schema_editor):

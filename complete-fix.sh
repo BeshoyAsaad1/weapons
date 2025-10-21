@@ -51,12 +51,12 @@ if [ -f nginx/nginx.conf.http-only ]; then
     echo "✓ Using HTTP-only config"
 else
     echo "⚠️  HTTP-only config not found, will try with current config"
-sudo docker-compose -f docker-compose.prod.yml up -d 2>/dev/null || docker-compose -f docker-compose.prod.yml up -d
+fi
 echo ""
 
 # Step 4: Start containers
 echo "Step 4: Starting containers..."
-docker-compose -f docker-compose.prod.yml up -d
+sudo docker-compose -f docker-compose.prod.yml up -d 2>/dev/null || docker-compose -f docker-compose.prod.yml up -d
 echo "✓ Containers started"
 echo ""
 
@@ -66,19 +66,19 @@ sleep 20
 echo ""
 
 # Step 6: Check container status
-NGINX_STATUS=$(sudo docker ps --filter "name=nginx" --format "{{.Status}}" 2>/dev/null || docker ps --filter "name=nginx" --format "{{.Status}}")
-docker-compose -f docker-compose.prod.yml ps
+echo "Step 6: Checking container status..."
+sudo docker-compose -f docker-compose.prod.yml ps 2>/dev/null || docker-compose -f docker-compose.prod.yml ps
 echo ""
 
 # Step 7: Check if nginx is healthy
-NGINX_STATUS=$(docker ps --filter "name=nginx" --format "{{.Status}}")
+NGINX_STATUS=$(sudo docker ps --filter "name=nginx" --format "{{.Status}}" 2>/dev/null || docker ps --filter "name=nginx" --format "{{.Status}}")
 echo "Nginx status: $NGINX_STATUS"
 echo ""
 
 if echo "$NGINX_STATUS" | grep -q "Restarting"; then
     echo "❌ Nginx is still crashing!"
     echo "Checking nginx logs:"
-    docker logs weaponbackend_nginx_prod --tail 20
+    sudo docker logs weaponbackend_nginx_prod --tail 20 2>/dev/null || docker logs weaponbackend_nginx_prod --tail 20
     echo ""
     echo "This is likely because SSL certificates are missing."
     echo "Let's set them up now..."
@@ -96,8 +96,8 @@ if echo "$NGINX_STATUS" | grep -q "Restarting"; then
 
     echo ""
     echo "Step 9: Restarting all containers with SSL..."
-    docker-compose -f docker-compose.prod.yml down
-    docker-compose -f docker-compose.prod.yml up -d
+    sudo docker-compose -f docker-compose.prod.yml down 2>/dev/null || docker-compose -f docker-compose.prod.yml down
+    sudo docker-compose -f docker-compose.prod.yml up -d 2>/dev/null || docker-compose -f docker-compose.prod.yml up -d
     sleep 10
 else
     echo "✓ Nginx is running!"
@@ -105,7 +105,7 @@ fi
 
 echo ""
 echo "Step 10: Final container status check..."
-docker-compose -f docker-compose.prod.yml ps
+sudo docker-compose -f docker-compose.prod.yml ps 2>/dev/null || docker-compose -f docker-compose.prod.yml ps
 echo ""
 
 echo "Step 11: Checking if ports are listening..."
